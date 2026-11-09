@@ -1,0 +1,75 @@
+<!doctype html><html><head><meta charset="utf-8"></head><body><script type="module">
+import OBR, {buildShape,buildText} from 'https://esm.sh/@owlbear-rodeo/sdk@2';
+OBR.onReady(async()=>{
+
+// V4.3.3: barres de PV de scene, texte centre et creation atomique. Les elements sont attaches au pion et ne changent pas son image.
+const DATA='fr.arene.fiches/data', MARK='fr.arene.fiches/map-hp-v43';
+const teamColors={none:'#9ba4b8',red:'#e85065',blue:'#4b9cf5',green:'#4fcb87',yellow:'#efc84c',purple:'#a87bf5',orange:'#f3974f'};
+const lastState=new Map();let busy=false,queued=false;
+async function refreshMapBars(){
+ if(busy){queued=true;return}busy=true;
+ try{
+  const all=await OBR.scene.items.getItems();
+  const chars=all.filter(x=>x.layer==='CHARACTER'&&x.metadata?.[DATA]);
+  const attachments=all.filter(x=>x.metadata?.[MARK]);
+  const byToken=new Map();
+  for(const x of attachments){const k=x.metadata[MARK].token;if(!byToken.has(k))byToken.set(k,[]);byToken.get(k).push(x)}
+  for(const c of chars){
+   const d=c.metadata[DATA],active=(d.transformations||[]).find(t=>t.id===d.activeTransformation);
+   const max=Math.max(0,Number(active?.stats?.hpMax||d.hpMax)||0),hp=Math.max(0,Math.min(max,Number(d.hp)||0));
+   const old=byToken.get(c.id)||[];
+   if(!d.showMapHp||max<=0){if(old.length)await OBR.scene.items.deleteItems(old.map(x=>x.id));lastState.delete(c.id);continue}
+   const dpi=Number(await OBR.scene.grid.getDpi().catch(()=>70))||70;
+   const iw=Number(c.image?.width)||dpi,ih=Number(c.image?.height)||dpi;
+   const sx=Math.abs(Number(c.scale?.x)||1),sy=Math.abs(Number(c.scale?.y)||1);
+   const bw=Math.max(24,iw*sx),bh=Math.max(24,ih*sy);
+   const width=Math.max(45,Math.min(115,bw*.72)),height=Math.max(16,Math.min(21,width*.2));
+   const x=(Number(c.position?.x)||0)+(bw-width)/2,y=(Number(c.position?.y)||0)+bh+Math.max(2,height*.25);
+   const percent=hp/max,team=teamColors[d.team]||teamColors.none;
+   const pref=active?.colors?.hp||d.colors?.hp||'default',fill=/^#[0-9a-fA-F]{6}$/.test(pref)?pref:'#e14e65';
+   const mk=part=>({[MARK]:{token:c.id,part}});
+   const base=(part,w,h,col,xx,yy)=>buildShape().shapeType('RECTANGLE').width(w).height(h).fillColor(col).strokeOpacity(0).layer('ATTACHMENT').attachedTo(c.id).position({x:xx,y:yy}).locked(true).disableHit(true).metadata(mk(part)).build();
+   const required=['team','track','fill','label'];
+   const present=required.every(part=>old.filter(z=>z.metadata[MARK].part===part).length===1);
+   const state=JSON.stringify([hp,max,team,fill,x,y,width,height]);
+   if(present&&lastState.get(c.id)===state)continue;
+   if(present){
+     // Stable Owlbear items: update the same text object instead of deleting and re-adding it.
+     const ids=old.map(z=>z.id);
+     await OBR.scene.items.updateItems(ids,items=>{
+       for(const item of items){const part=item.metadata?.[MARK]?.part;
+         if(part==='team'){item.position={x:x-height*.75,y};item.width=Math.max(4,height*.55);item.height=height;item.style.fillColor=team}
+         if(part==='track'){item.position={x,y};item.width=width;item.height=height}
+         if(part==='fill'){item.position={x,y};item.width=Math.max(.01,width*percent);item.height=height;item.style.fillColor=fill;item.style.fillOpacity=hp?1:0}
+         if(part==='label'){item.position={x,y};item.width=width;item.height=height;item.text={type:"PLAIN",plainText:`${hp}/${max}`}}
+       }
+     });
+   }else{
+     if(old.length)await OBR.scene.items.deleteItems(old.map(z=>z.id));
+     const label=buildText().plainText(`${hp}/${max}`).textType('PLAIN').padding(0)
+       .fontSize(Math.max(12,Math.min(16,width*.17))).fontWeight(700).fillColor('#ffffff')
+       .textAlign('CENTER').textAlignVertical('MIDDLE').strokeColor('#15141d')
+       .strokeWidth(1.5).strokeOpacity(1).width(width).height(height)
+       .layer('ATTACHMENT').attachedTo(c.id).position({x,y}).locked(true).disableHit(true)
+       .metadata(mk('label')).build();
+     await OBR.scene.items.addItems([
+       base('team',Math.max(4,height*.55),height,team,x-height*.75,y),
+       base('track',width,height,'#2b2734',x,y),
+       base('fill',Math.max(.01,width*percent),height,fill,x,y),label]);
+   }
+   lastState.set(c.id,state);
+  }
+  const live=new Set(chars.map(x=>x.id));const orphan=attachments.filter(x=>!live.has(x.metadata[MARK].token));
+  if(orphan.length)await OBR.scene.items.deleteItems(orphan.map(x=>x.id));
+ }catch(e){console.warn('Arène Multivers: barres de PV',e)}
+ finally{busy=false;if(queued){queued=false;refreshMapBars()}}
+}
+let debounce;OBR.scene.items.onChange(()=>{clearTimeout(debounce);debounce=setTimeout(refreshMapBars,180)});refreshMapBars();
+
+  await OBR.contextMenu.create({id:'fr.arene.fiches/open',icons:[{icon:'/icon.svg',label:'Ouvrir la fiche',filter:{every:[{key:'layer',value:'CHARACTER'}],max:1}}],onClick:async(context,elementId)=>{
+    const item=context.items[0];if(!item)return;
+    const id='fr.arene.fiches/pion-'+item.id;
+    await OBR.popover.open({id,url:'/fiche.html?item='+encodeURIComponent(item.id)+'&x=440&y=100',width:390,height:650,anchorPosition:{left:440,top:100},anchorReference:'POSITION',disableClickAway:true});
+  }});
+});
+</script></body></html>
