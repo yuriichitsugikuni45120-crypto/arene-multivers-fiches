@@ -69,7 +69,7 @@ let debounce;OBR.scene.items.onChange(()=>{clearTimeout(debounce);debounce=setTi
   await OBR.contextMenu.create({id:'fr.arene.fiches/open',icons:[{icon:'/icon.svg',label:'Ouvrir la fiche',filter:{every:[{key:'layer',value:'CHARACTER'}],max:1}}],onClick:async(context,elementId)=>{
     const item=context.items[0];if(!item)return;
     const id='fr.arene.fiches/pion-'+item.id;
-    await OBR.popover.open({id,url:'/fiche.html?item='+encodeURIComponent(item.id)+'&x=440&y=100',width:390,height:650,anchorPosition:{left:440,top:100},anchorReference:'POSITION',disableClickAway:true});
+    await OBR.popover.open({id,url:'fiche.html?item='+encodeURIComponent(item.id)+'&x=440&y=100',width:390,height:650,anchorPosition:{left:440,top:100},anchorReference:'POSITION',disableClickAway:true});
   }});
 });
 </script></body></html>

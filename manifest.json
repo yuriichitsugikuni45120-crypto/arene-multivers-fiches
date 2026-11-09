@@ -1,1 +1,9 @@
-{"name":"Arène Multivers - Bibliothèque illustrée","version":"1.0.0","manifest_version":1,"description":"Bibliothèque de pions illustrés : portraits personnalisés, sauvegarde, placement sur la carte.","icon":"/icon.svg","author":"Arène Multivers","action":{"title":"Bibliothèque illustrée","icon":"/icon.svg","popover":"/index.html","width":460,"height":700}}
+{
+  "name": "Fiches de bataille - Arène Multivers",
+  "version": "1.3.0",
+  "manifest_version": 1,
+  "description": "Fiches par pion : fenêtres indépendantes, plusieurs fiches simultanées.",
+  "icon": "icon.svg",
+  "author": "Arène Multivers",
+  "background_url": "background.html"
+}

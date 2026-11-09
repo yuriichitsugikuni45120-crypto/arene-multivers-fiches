@@ -1,2 +1,10 @@
-/*
+/manifest.json
+  Access-Control-Allow-Origin: *
+  Access-Control-Allow-Methods: GET, OPTIONS
+  Access-Control-Allow-Headers: Content-Type
+
+/*.html
+  Access-Control-Allow-Origin: *
+
+/icon.svg
   Access-Control-Allow-Origin: *
